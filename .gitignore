@@ -1,0 +1,4 @@
+venv/
+.env
+agent\__pycache__
+serpapi_tools\__pycache__
