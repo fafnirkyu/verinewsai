@@ -11,6 +11,10 @@ LLM's static training knowledge.
 [![VeriNews AI Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=K7H_3omZDDw)
 *Click to watch the full walkthrough*
 
+## Demo Deployment
+
+https://verinewsai-3qdgmhefxyocegud7gwlm7.streamlit.app/
+
 ## The Problem
 
 Large language models have two structural weaknesses when asked "is this
