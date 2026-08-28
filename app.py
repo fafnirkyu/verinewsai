@@ -1,3 +1,4 @@
+import os
 import streamlit as st
 from agent.planner import ResearchPlanner
 from agent.context_manager import HybridContextEngine
@@ -5,6 +6,9 @@ from agent.verifier import VeriNewsVerifier
 from agent.url_extractor import is_url, extract_article_from_url
 from dotenv import load_dotenv
 load_dotenv()
+
+for key, value in st.secrets.items():
+    os.environ[key] = value
 
 st.set_page_config(
     page_title="VeriNews AI | Institutional Fact Verification",
