@@ -15,8 +15,12 @@ from agent.url_extractor import is_url, extract_article_from_url
 logging.basicConfig(level=logging.ERROR)
 
 
-class PipelineBenchmarker:
-    """Automated benchmarking suite for VeriNews AI pipeline telemetry and accuracy checks."""
+class PipelineTelemetryRunner:
+    """Exercises the live pipeline and records operational telemetry.
+
+    This runner measures execution, latency, and output structure. It does not
+    measure factual accuracy because the cases do not include labeled answers.
+    """
 
     def __init__(self):
         self.planner = ResearchPlanner()
@@ -25,7 +29,7 @@ class PipelineBenchmarker:
 
     def run_single_test(self, test_id: int, input_text: str) -> Dict[str, Any]:
         print(f"\n{'='*70}")
-        print(f"RUNNING BENCHMARK TEST {test_id}: {input_text[:60]}...")
+        print(f"RUNNING TELEMETRY CASE {test_id}: {input_text[:60]}...")
         print(f"{'='*70}")
 
         metrics = {
@@ -98,29 +102,29 @@ class PipelineBenchmarker:
 
         except Exception as e:
             metrics["status"] = f"FAILED: {str(e)}"
-            print(f"Error during benchmark run: {e}")
+            print(f"Error during telemetry run: {e}")
 
         metrics["total_time_sec"] = round(time.perf_counter() - start_total, 3)
         return metrics
 
 
 def main():
-    benchmarking_dataset = [
+    telemetry_cases = [
         "https://www.bbc.com/news/articles/cwyz9gjw9n9o",
         "Tesla announced immediate full production of solid-state battery electric vehicles in 2026.",
         "Sunscreen causes skin cancer and blocks all essential vitamin absorption."
     ]
 
-    runner = PipelineBenchmarker()
+    runner = PipelineTelemetryRunner()
     all_metrics: List[Dict[str, Any]] = []
 
-    print("\nStarting VeriNews AI Automated Benchmark Suite...")
-    print(f"Total Test Cases: {len(benchmarking_dataset)}")
+    print("\nStarting VeriNews AI live pipeline telemetry run...")
+    print(f"Total Cases: {len(telemetry_cases)}")
 
-    for idx, test_input in enumerate(benchmarking_dataset, start=1):
+    for idx, test_input in enumerate(telemetry_cases, start=1):
         res = runner.run_single_test(idx, test_input)
         all_metrics.append(res)
-        if idx < len(benchmarking_dataset):
+        if idx < len(telemetry_cases):
             print("\n[Pacing] Waiting 4 seconds before next test case...")
             time.sleep(4)
 
@@ -128,11 +132,11 @@ def main():
     successful_runs = [m for m in all_metrics if m["status"] == "SUCCESS"]
 
     print("\n" + "="*80)
-    print("VERINEWS AI — PIPELINE BENCHMARK TELEMETRY SUMMARY")
+    print("VERINEWS AI — LIVE PIPELINE TELEMETRY SUMMARY")
     print("="*80)
 
     print(f"\nExecution Overview:")
-    print(f"  - Total Benchmark Runs:  {len(all_metrics)}")
+    print(f"  - Total Runs:            {len(all_metrics)}")
     print(f"  - Successful Runs:       {len(successful_runs)}")
     print(f"  - Pipeline Success Rate: {(len(successful_runs)/len(all_metrics))*100:.1f}%")
 

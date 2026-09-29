@@ -1,6 +1,7 @@
 import os
 import time
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 from agent.planner import ResearchPlanner
 from agent.context_manager import HybridContextEngine
 from agent.verifier import VeriNewsVerifier
@@ -16,11 +17,14 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Load default Streamlit Secrets into os.environ if available
-if hasattr(st, "secrets"):
+# Load deployed Streamlit secrets into the environment when configured.
+# Local development can rely entirely on .env without a secrets.toml file.
+try:
     for key, value in st.secrets.items():
         if isinstance(value, str):
             os.environ[key] = value
+except StreamlitSecretNotFoundError:
+    pass
 
 # Professional Interface Styling
 st.markdown("""
@@ -61,9 +65,9 @@ with st.sidebar:
         help="Leave blank to use the default app quota."
     )
 
-    # Dynamic Key Resolution Logic: User Input > Streamlit Secrets > Environment Variable
-    ACTIVE_GEMINI = user_gemini_key.strip() if user_gemini_key.strip() else st.secrets.get("GEMINI_API_KEY", os.getenv("GEMINI_API_KEY", ""))
-    ACTIVE_SERPAPI = user_serpapi_key.strip() if user_serpapi_key.strip() else st.secrets.get("SERPAPI_API_KEY", os.getenv("SERPAPI_API_KEY", ""))
+    # Key precedence: user input > Streamlit secret or local environment.
+    ACTIVE_GEMINI = user_gemini_key.strip() or os.getenv("GEMINI_API_KEY", "")
+    ACTIVE_SERPAPI = user_serpapi_key.strip() or os.getenv("SERPAPI_API_KEY", "")
 
     if ACTIVE_GEMINI:
         os.environ["GEMINI_API_KEY"] = ACTIVE_GEMINI
