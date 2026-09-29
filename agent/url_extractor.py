@@ -1,16 +1,48 @@
+import ipaddress
 import re
+import socket
+from urllib.parse import urljoin, urlparse
+
 import requests
 from bs4 import BeautifulSoup
 
+
+REDIRECT_STATUSES = {301, 302, 303, 307, 308}
+MAX_REDIRECTS = 5
+
+
 def is_url(text: str) -> bool:
     """Checks if the input string is a valid HTTP/HTTPS URL."""
-    url_pattern = re.compile(
-        r'^(https?://)'
-        r'([a-zA-Z0-9.-]+(\.[a-zA-Z]{2,})+)'
-        r'(:\d+)?'
-        r'(/.*)?$'
-    )
-    return bool(url_pattern.match(text.strip()))
+    parsed = urlparse(text.strip())
+    return parsed.scheme in {"http", "https"} and bool(parsed.hostname)
+
+
+def _validate_public_url(url: str) -> None:
+    """Rejects URLs that resolve to local, private, or reserved addresses."""
+    parsed = urlparse(url)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("Only valid HTTP and HTTPS URLs are supported.")
+
+    try:
+        addresses = [ipaddress.ip_address(parsed.hostname)]
+    except ValueError:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        try:
+            address_info = socket.getaddrinfo(
+                parsed.hostname,
+                port,
+                type=socket.SOCK_STREAM,
+            )
+        except socket.gaierror as exc:
+            raise ValueError("The URL hostname could not be resolved.") from exc
+        addresses = {
+            ipaddress.ip_address(item[4][0])
+            for item in address_info
+        }
+
+    if not addresses or any(not address.is_global for address in addresses):
+        raise ValueError("The URL resolves to a non-public network address.")
+
 
 def extract_article_from_url(url: str) -> dict:
     """Fetches a URL and extracts only the primary article text, discarding sidebar noise."""
@@ -23,8 +55,28 @@ def extract_article_from_url(url: str) -> dict:
     }
     
     try:
-        response = requests.get(url.strip(), headers=headers, timeout=12)
-        response.raise_for_status()
+        original_url = url.strip()
+        current_url = original_url
+
+        for _ in range(MAX_REDIRECTS + 1):
+            _validate_public_url(current_url)
+            response = requests.get(
+                current_url,
+                headers=headers,
+                timeout=12,
+                allow_redirects=False,
+            )
+
+            if response.status_code not in REDIRECT_STATUSES:
+                response.raise_for_status()
+                break
+
+            location = response.headers.get("Location")
+            if not location:
+                raise ValueError("The URL returned a redirect without a destination.")
+            current_url = urljoin(current_url, location)
+        else:
+            raise ValueError(f"The URL exceeded the {MAX_REDIRECTS}-redirect limit.")
         
         soup = BeautifulSoup(response.text, "html.parser")
         
@@ -61,7 +113,7 @@ def extract_article_from_url(url: str) -> dict:
 
         return {
             "success": True,
-            "url": url,
+            "url": current_url,
             "title": title.strip() if title else "Extracted Article",
             "content": body_text[:3500],  # Cap token size focused on main narrative
             "error": None
@@ -70,7 +122,7 @@ def extract_article_from_url(url: str) -> dict:
     except Exception as e:
         return {
             "success": False,
-            "url": url,
+            "url": url.strip(),
             "title": "Extraction Failed",
             "content": "",
             "error": str(e)
