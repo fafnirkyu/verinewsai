@@ -1,4 +1,16 @@
+# Virtual environments
+.venv/
 venv/
+
+# Python-generated files
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Local configuration and secrets
 .env
-agent\__pycache__
-serpapi_tools\__pycache__
+.env.*
+!.env.example
+
+# Local Streamlit secrets
+.streamlit/secrets.toml
